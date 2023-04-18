@@ -1,0 +1,12 @@
+{
+  "name": "nodejs-api-example",
+  "version": "2.0.0",
+  "description": "Basic example script to create orders with the IMPARGO GraphQL API.",
+  "main": "index.js",
+  "repository": "git@github.com:impargo/nodejs-api-example.git",
+  "author": "Julian Labeit <j.labeit@impargo.de>",
+  "license": "MIT",
+  "dependencies": {
+    "node-fetch": "^2.6.1"
+  }
+}
