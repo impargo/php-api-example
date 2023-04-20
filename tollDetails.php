@@ -1,49 +1,60 @@
-<?php 
-require_once 'vendor/autoload.php';
+<?php
 
-use GraphQL\Client;
-use GraphQL\Request;
+// autoload all composer dependencies
+require __DIR__ . '/vendor/autoload.php';
 
-$client = Client::create('http://dev.backend.impargo.eu/graphql');
+use GuzzleHttp\Client;
+use GuzzleHttp\RequestOptions;
 
-$data = require("./data/simpleOrder.json");
-$token = getenv('TOKEN');
+// parse env file where is api key stored
+$dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
+$dotenv->load();
 
-$query = <<< 'GRAPHQL'
-mutation importOrder($data: OrderImportInput!){
-  importOrder(data:$data) {
-    _id
-    order {
-      route {
-        distance
-        time
-        routeDetails {
-          tolls {
-            summary {
-              amount
-            }
-            byCountryAndTollSystem {
-              name
-              amount
+$data = file_get_contents(__DIR__ . '/data/simpleOrder.json');
+$data = json_decode($data, true);
+
+$query = <<<GRAPHQL
+    mutation importOrder(\$data: OrderImportInput!){
+      importOrder(data:\$data) {
+        _id
+        order {
+          route {
+            distance
+            time
+            routeDetails {
+              tolls {
+                summary {
+                  amount
+                }
+                byCountryAndTollSystem {
+                  name
+                  amount
+                }
+              }
             }
           }
         }
       }
     }
-  }
-}
 GRAPHQL;
 
-$request = new Request($query, [
-    'data' => $data
-]);
+$client = new Client();
+$response = $client->post(
+    'https://dev.backend.impargo.eu/',
+    [
+        RequestOptions::HEADERS => [
+            'Content-Type' => 'application/json',
+            'authorization' => $_ENV['IMPARGO_API_KEY'],
+        ],
+        RequestOptions::JSON => [
+            'query' => $query,
+            'variables' => [
+                'data' => $data,
+            ],
+        ],
+    ]
+);
 
-$request->setHeader('authorization', $token);
+$jsonResult = json_decode($response->getBody()->getContents(), true);
 
-$promise = $client->runQuery($request);
-$data = $promise->then(function ($result) {
-    return $result->data;
-});
-
-echo "Tolls details of order:\n" . json_encode($data, JSON_PRETTY_PRINT);
-?>
+printf("Tolls details of order: \n %s \n", json_encode($jsonResult, JSON_PRETTY_PRINT));

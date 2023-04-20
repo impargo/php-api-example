@@ -1,31 +1,50 @@
 <?php
-use GraphQL\Client;
-use GraphQL\Query;
 
-$data = require("./data/advancedOrder.json");
-$endpoint = getenv('ENDPOINT') ?: "https://dev.backend.impargo.eu/";
-$token = getenv('TOKEN');
+// autoload all composer dependencies
+require __DIR__ . '/vendor/autoload.php';
 
-$query = <<<'GQL'
-mutation importOrder($data: OrderImportInput!){
-  importOrder(data:$data) {
-    _id
-    order {
-      reference
-      route {
-        distance
-        time
+use GuzzleHttp\Client;
+use GuzzleHttp\RequestOptions;
+
+// parse env file where is api key stored
+$dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
+$dotenv->load();
+
+$data = file_get_contents(__DIR__ . '/data/additionalStopDetailsOrder.json');
+$data = json_decode($data, true);
+
+$query = <<<GRAPHQL
+    mutation importOrder(\$data: OrderImportInput!){
+      importOrder(data:\$data) {
+        _id
+        order {
+          reference
+          route {
+            distance
+            time
+          }
+        }
       }
     }
-  }
-}
-GQL;
+GRAPHQL;
 
-$client = new Client($endpoint);
-$query = new Query($query);
-$query->setVariables(['data' => $data]);
-$query->setHeader('authorization', $token);
+$client = new Client();
+$response = $client->post(
+    'https://dev.backend.impargo.eu/',
+    [
+        RequestOptions::HEADERS => [
+            'Content-Type' => 'application/json',
+            'authorization' => $_ENV['IMPARGO_API_KEY'],
+        ],
+        RequestOptions::JSON => [
+            'query' => $query,
+            'variables' => [
+                'data' => $data,
+            ],
+        ],
+    ]
+);
 
-$result = $client->runQuery($query);
-echo "Order successfully created:\n", json_encode($result->data, JSON_PRETTY_PRINT), "\n";
-?>
+$jsonResult = json_decode($response->getBody()->getContents(), true);
+
+printf("Order successfully created: \n %s \n", json_encode($jsonResult, JSON_PRETTY_PRINT));
